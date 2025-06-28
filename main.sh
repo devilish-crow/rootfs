@@ -7,18 +7,24 @@ if [ -z "$COMMAND" ]; then
     exit 1
 fi
 
-ROOTFS_BASE="/home/$USER/rootfs"
-create_sandbox() {
+ROOTFS_BASE="/home/$USER/.rootfs"
+create() {
     REL_PATH="$1"
+    CUSTOM_NAME="$2"
     ROOTFS="$ROOTFS_BASE/$REL_PATH"
     ROOTFS_NAME=$(basename "$ROOTFS")
 
     if [ ! -d "$ROOTFS" ]; then
-        echo "Error: rootfs '$ROOTFS' does not exist. You can look into ~/rootfs to see all your installed rootfs."
+        echo "Error: rootfs '$ROOTFS' does not exist."
         exit 1
     fi
 
-    SANDBOX_NAME="${ROOTFS_NAME}-$(head /dev/urandom | tr -dc a-z0-9 | head -c6)"
+    if [ -n "$CUSTOM_NAME" ]; then
+        SANDBOX_NAME="$CUSTOM_NAME"
+    else
+        SANDBOX_NAME="${ROOTFS_NAME}-$(head /dev/urandom | tr -dc a-z0-9 | head -c6)"
+    fi
+
     STATE_DIR="/tmp/bwrap_sandbox_$SANDBOX_NAME"
     UPPER_DIR="$STATE_DIR/upper"
     WORK_DIR="$STATE_DIR/work"
@@ -27,7 +33,7 @@ create_sandbox() {
 
     fuse-overlayfs -o lowerdir="$ROOTFS",upperdir="$UPPER_DIR",workdir="$WORK_DIR" "$MERGED_DIR"
     if [ $? -ne 0 ]; then
-        echo "Fuse-overlayfs failed to mount. How did we even get here?"
+        echo "Fuse-overlayfs failed to mount."
         exit 1
     fi
 
@@ -37,10 +43,10 @@ SANDBOX_LOWER=$ROOTFS
 SANDBOX_STATE_DIR=$STATE_DIR
 EOF
 
-    echo "$SANDBOX_NAME"
+    echo "Created $SANDBOX_NAME"
 }
 
-login_sandbox() {
+login() {
     SANDBOX_NAME="$1"
     STATE_DIR="/tmp/bwrap_sandbox_$SANDBOX_NAME"
     ENV_FILE="$STATE_DIR/env"
@@ -66,7 +72,7 @@ login_sandbox() {
       /bin/ash
 }
 
-clean_sandbox() {
+clean() {
     ARG="$1"
     if [ "$ARG" = "all" ] || [ "$ARG" = "*" ]; then
         echo "Cleaning all sandboxes..."
@@ -97,25 +103,25 @@ case "$COMMAND" in
             echo "Usage: $0 create <relative/rootfs>"
             exit 1
         fi
-        create_sandbox "$ARG"
+        create "$ARG"
         ;;
     login)
         if [ -z "$ARG" ]; then
-            echo "Usage: $0 login <sandbox-name>"
+            echo "Usage: $0 login <instance-name>"
             exit 1
         fi
-        login_sandbox "$ARG"
+        login "$ARG"
         ;;
     clean)
         if [ -z "$ARG" ]; then
-            echo "Usage: $0 clean <sandbox-name|all>"
+            echo "Usage: $0 clean <instance-name|all>"
             exit 1
         fi
-        clean_sandbox "$ARG"
+        clean "$ARG"
         ;;
     *)
         echo "Unknown command: $COMMAND"
-        echo "Usage: $0 create <rootfs> | login <sandbox-name> | clean <sandbox-name|all>"
+        echo "Usage: $0 create <rootfs> [instance-name] | login <instance-name> | clean <instance-name|all>"
         exit 1
         ;;
 esac
