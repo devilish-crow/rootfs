@@ -1,4 +1,5 @@
 #!/bin/ash
+set -e
 if [ -z "$1" ]; then
     echo "Usage: $0 create [-p] <rootfs> [name] | login <sandbox-name> | clean <sandbox-name|all> | list | rename <old-name> <new-name>"
     exit 1
